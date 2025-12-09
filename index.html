@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대용량 성경 검색기</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; padding-top: 50px; }
+        .container { width: 100%; max-width: 750px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        
+        .search-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+        select, input, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; }
+        input { flex: 1; }
+        button { background-color: #5c6bc0; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #3949ab; }
+        
+        /* 검색 결과 수 표시 스타일 */
+        .count-display { margin-bottom: 15px; color: #666; font-size: 14px; text-align: right; }
+        .highlight { color: #e74c3c; font-weight: bold; }
+
+        .result-item { border-bottom: 1px solid #eee; padding: 20px 0; }
+        .result-item h3 { margin: 0 0 12px; font-size: 18px; color: #2c3e50; background-color: #e8eaf6; display: inline-block; padding: 6px 12px; border-radius: 6px; }
+        .verse-box { display: grid; gap: 8px; }
+        .verse-text { margin: 0; line-height: 1.5; padding-left: 10px; border-left: 3px solid transparent; }
+        .kr { color: #333; font-weight: 500; border-left-color: #e74c3c; }
+        .hr { color: #2e7d32; font-style: italic; border-left-color: #2e7d32; }
+        .en { color: #1976d2; border-left-color: #1976d2; }
+        .loading { text-align: center; color: #666; font-style: italic; }
+
+        /* 페이지네이션 스타일 */
+        .pagination { display: flex; justify-content: center; gap: 5px; margin-top: 20px; flex-wrap: wrap; }
+        .page-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background-color: white;
+            color: #333;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .page-btn:hover { background-color: #eee; }
+        .page-btn.active { background-color: #5c6bc0; color: white; border-color: #5c6bc0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌍 3개 국어 성경 검색</h1>
+    
+    <div class="search-controls">
+        <select id="searchLang">
+            <option value="kr">한국어 (KR)</option>
+            <option value="hr">크로아티아어 (HR)</option>
+            <option value="en">English (NIV)</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="검색어를 입력하세요 (예: 사랑, 창세기 1:1)">
+        <button onclick="searchBible()">검색</button>
+    </div>
+
+    <div id="resultCount" class="count-display"></div>
+    
+    <div id="status" class="loading">데이터 불러오는 중...</div>
+    <div id="results"></div>
+    
+    <div id="pagination" class="pagination"></div>
+</div>
+
+<script>
+    let bibleData = [];
+    
+    // 페이지네이션용 전역 변수
+    let currentFilteredData = []; 
+    let currentPage = 1;          
+    const rowsPerPage = 10;       
+
+    // 1. 데이터 불러오기 (사용자님이 주신 URL 적용 완료!)
+    fetch('https://script.google.com/macros/s/AKfycbzBUhwXIy5dswQuzE3vWtPnaCZEOtcP2ryif07-HuG4Qv75YbqWtVL_DWZiN2EdEUkC/exec')
+    .then(response => response.json())
+    .then(data => {
+        bibleData = data;
+        document.getElementById('status').innerText = `데이터 로드 완료! (총 ${bibleData.length}구절)`;
+        setTimeout(() => { document.getElementById('status').style.display = 'none'; }, 2000);
+    })
+    .catch(error => {
+        console.error(error);
+        document.getElementById('status').innerText = "❌ 데이터를 불러올 수 없습니다.";
+    });
+
+    // 2. 검색 버튼 클릭 시 실행
+    function searchBible() {
+        const langMode = document.getElementById('searchLang').value;
+        const input = document.getElementById('searchInput').value.toLowerCase().trim();
+        
+        if (input === "") { alert("검색어를 입력해주세요!"); return; }
+        if (bibleData.length === 0) { alert("데이터 로딩 중입니다."); return; }
+
+        // 필터링
+        currentFilteredData = bibleData.filter(item => {
+            let contentText = "";
+            if (langMode === 'kr') contentText = item.content_kr;
+            else if (langMode === 'hr') contentText = item.content_hr;
+            else if (langMode === 'en') contentText = item.content_en;
+            
+            // 데이터가 없을 경우(빈 문자열) 안전하게 처리
+            if (!contentText) contentText = "";
+
+            const bookName = item.book ? item.book.toLowerCase() : "";
+            const verseRef = `${item.chapter}:${item.verse}`; 
+
+            const basicMatch = contentText.toLowerCase().includes(input) || 
+                               bookName.includes(input) || 
+                               verseRef === input;
+
+            let complexMatch = false;
+            if (input.includes(' ')) {
+                const lastSpaceIndex = input.lastIndexOf(' ');
+                const searchBook = input.substring(0, lastSpaceIndex).trim();
+                const searchRef = input.substring(lastSpaceIndex + 1).trim();
+
+                if (bookName.includes(searchBook)) {
+                    if (searchRef.includes(':')) {
+                        if (verseRef === searchRef) complexMatch = true;
+                    } else {
+                        if (verseRef.startsWith(searchRef + ':')) complexMatch = true;
+                    }
+                }
+            }
+            return basicMatch || complexMatch;
+        });
+
+        // 결과 화면 세팅
+        currentPage = 1; 
+        updateCountDisplay(); 
+        displayList(); 
+        setupPagination(); 
+    }
+
+    // 3. 총 개수 표시 함수
+    function updateCountDisplay() {
+        const countDiv = document.getElementById('resultCount');
+        if (currentFilteredData.length > 0) {
+            countDiv.innerHTML = `총 <span class="highlight">${currentFilteredData.length}</span>개의 결과를 찾았습니다.`;
+        } else {
+            countDiv.innerHTML = "";
+        }
+    }
+
+    // 4. 리스트 출력 함수 (10개씩 자르기)
+    function displayList() {
+        const resultContainer = document.getElementById('results');
+        resultContainer.innerHTML = "";
+
+        if (currentFilteredData.length === 0) {
+            resultContainer.innerHTML = '<div style="text-align:center; color:#888;">검색 결과가 없습니다.</div>';
+            return;
+        }
+
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const paginatedItems = currentFilteredData.slice(start, end);
+
+        paginatedItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.innerHTML = `
+                <h3>${item.book} ${item.chapter}:${item.verse}</h3>
+                <div class="verse-box">
+                    <p class="verse-text kr">🇰🇷 ${item.content_kr}</p>
+                    <p class="verse-text hr">🇭🇷 ${item.content_hr}</p>
+                    <p class="verse-text en">🇺🇸 ${item.content_en}</p>
+                </div>
+            `;
+            resultContainer.appendChild(div);
+        });
+    }
+
+    // 5. 페이지네이션 버튼 생성 함수
+    function setupPagination() {
+        const paginationContainer = document.getElementById('pagination');
+        paginationContainer.innerHTML = "";
+
+        const pageCount = Math.ceil(currentFilteredData.length / rowsPerPage);
+        
+        if (pageCount <= 1) return;
+
+        // 버튼 생성 (최대 100페이지가 넘어가면 UI가 깨질 수 있으니 10개씩 끊어 보여주는 로직을 추가하면 더 좋습니다. 
+        // 일단은 요청하신 대로 간단히 전체 페이지를 생성합니다.)
+        for (let i = 1; i <= pageCount; i++) {
+            const btn = document.createElement('button');
+            btn.innerText = i;
+            btn.className = 'page-btn';
+            
+            if (i === currentPage) {
+                btn.classList.add('active');
+            }
+
+            btn.addEventListener('click', function() {
+                currentPage = i;
+                displayList(); 
+                
+                // 버튼 스타일 업데이트
+                let currentBtn = document.querySelector('.pagination button.active');
+                if(currentBtn) currentBtn.classList.remove('active');
+                btn.classList.add('active');
+
+                // 스크롤을 맨 위 결과로 이동 (선택사항)
+                // document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+            });
+
+            paginationContainer.appendChild(btn);
+        }
+    }
+
+    // 엔터키 이벤트
+    document.getElementById('searchInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') searchBible();
+    });
+</script>
+
+</body>
+</html>
