@@ -4,15 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>내 손안의 성경 검색</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Roboto:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
     <style>
-        /* --- [1. 기본 스타일 (데스크탑 기준)] --- */
+        /* --- [기본 스타일] --- */
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; /* 모바일 가독성 폰트 */
+            /* 2. 폰트 적용 순서: Roboto(영/크) 먼저, 없으면 Noto Sans KR(한) 사용 */
+            font-family: 'Roboto', 'Noto Sans KR', sans-serif;
             background-color: #f0f2f5; 
             display: flex; 
             justify-content: center; 
-            padding: 40px 20px; /* 상하 좌우 여백 */
+            padding: 40px 20px;
             margin: 0;
+            color: #333;
         }
         
         .container { 
@@ -29,9 +36,10 @@
             color: #2c3e50; 
             margin: 0 0 25px 0; 
             font-size: 24px;
+            font-weight: 700;
         }
         
-        /* 검색 컨트롤 박스 */
+        /* 검색 컨트롤 */
         .search-controls { 
             display: flex; 
             gap: 10px; 
@@ -44,11 +52,12 @@
             border: 1px solid #ddd; 
             font-size: 16px; 
             outline: none;
-            -webkit-appearance: none; /* 아이폰 기본 스타일 제거 */
+            -webkit-appearance: none; 
+            font-family: 'Roboto', 'Noto Sans KR', sans-serif; /* 입력창에도 폰트 적용 */
         }
         
         select { background-color: #fff; min-width: 100px; }
-        input { flex: 1; } /* 남은 공간 다 차지하기 */
+        input { flex: 1; }
         button { 
             background-color: #5c6bc0; 
             color: white; 
@@ -57,14 +66,13 @@
             font-weight: bold;
             min-width: 80px;
         }
-        button:active { background-color: #3f51b5; } /* 눌렀을 때 효과 */
+        button:active { background-color: #3f51b5; }
         
-        /* 결과 수 및 로딩 */
         .count-display { margin-bottom: 15px; color: #666; font-size: 14px; text-align: right; }
         .highlight { color: #e74c3c; font-weight: bold; }
         .loading { text-align: center; color: #888; margin: 20px 0; font-size: 14px; }
 
-        /* 결과 리스트 디자인 */
+        /* 결과 리스트 */
         .result-item { 
             border-bottom: 1px solid #f1f1f1; 
             padding: 20px 0; 
@@ -79,20 +87,40 @@
             display: inline-block; 
             padding: 5px 10px; 
             border-radius: 6px; 
+            font-weight: 700;
         }
         
         .verse-box { display: grid; gap: 6px; }
+        
         .verse-text { 
             margin: 0; 
             line-height: 1.6; 
             padding-left: 10px; 
             border-left: 3px solid transparent; 
-            font-size: 15px; /* 본문 폰트 크기 */
-            word-break: keep-all; /* 단어 단위 줄바꿈 */
+            font-size: 16px; 
+            word-break: keep-all; 
         }
-        .kr { color: #333; border-left-color: #e74c3c; font-weight: 500;}
-        .hr { color: #2e7d32; border-left-color: #2e7d32; font-style: italic; font-size: 14px; }
-        .en { color: #1976d2; border-left-color: #1976d2; font-size: 14px; }
+        
+        /* 3. 언어별 폰트 미세 조정 */
+        .kr { 
+            color: #333; 
+            border-left-color: #e74c3c; 
+            font-weight: 500;
+            font-family: 'Noto Sans KR', sans-serif; /* 한국어 전용 */
+        }
+        .hr { 
+            color: #2e7d32; 
+            border-left-color: #2e7d32; 
+            font-style: italic; 
+            font-size: 15px; 
+            font-family: 'Roboto', sans-serif; /* 크로아티아어 전용 */
+        }
+        .en { 
+            color: #1976d2; 
+            border-left-color: #1976d2; 
+            font-size: 15px; 
+            font-family: 'Roboto', sans-serif; /* 영어 전용 */
+        }
 
         /* 페이지네이션 */
         .pagination { display: flex; justify-content: center; gap: 4px; margin-top: 30px; flex-wrap: wrap; }
@@ -104,52 +132,29 @@
             cursor: pointer;
             border-radius: 4px;
             font-size: 14px;
+            font-family: 'Roboto', sans-serif;
         }
         .page-btn.active { background-color: #5c6bc0; color: white; border-color: #5c6bc0; }
 
 
-        /* --- [2. 모바일 전용 스타일 (반응형)] --- */
-        /* 화면 폭이 600px 이하(스마트폰)일 때만 적용되는 규칙 */
+        /* --- [모바일 반응형] --- */
         @media (max-width: 600px) {
-            body {
-                padding: 10px; /* 전체 여백 줄임 */
-                background-color: #fff; /* 모바일은 흰 배경이 깔끔 */
-            }
-            .container {
-                padding: 15px;
-                box-shadow: none; /* 그림자 제거 */
-            }
-            h1 {
-                font-size: 20px; /* 제목 크기 줄임 */
-                margin-bottom: 20px;
-            }
+            body { padding: 10px; background-color: #fff; }
+            .container { padding: 15px; box-shadow: none; }
+            h1 { font-size: 20px; margin-bottom: 20px; }
             
-            /* 검색창 세로 배치 */
-            .search-controls {
-                flex-direction: column; /* 세로로 쌓기 */
-                gap: 8px;
-            }
-            select, input, button {
-                width: 100%; /* 가로 꽉 채우기 */
-                height: 48px; /* 손가락 터치하기 좋게 높이 키움 */
-                font-size: 16px; /* 폰트 키움 */
-            }
+            .search-controls { flex-direction: column; gap: 8px; }
+            select, input, button { width: 100%; height: 48px; font-size: 16px; }
             
-            /* 본문 가독성 조정 */
-            .verse-text {
-                font-size: 16px; /* 모바일에서 글씨가 더 잘 보이게 */
-                padding-left: 8px;
-            }
-            .result-item {
-                padding: 15px 0;
-            }
+            .verse-text { font-size: 16px; padding-left: 8px; }
+            .result-item { padding: 15px 0; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📖 성경 검색 (크로아티아어, 개역개정, NIV)</h1>
+    <h1>📖 3개 국어 성경 검색</h1>
     
     <div class="search-controls">
         <select id="searchLang">
@@ -178,7 +183,7 @@
     let currentPage = 1;          
     const rowsPerPage = 10;       
 
-    // 사용자 데이터 URL
+    // 사용자 데이터 URL (이전에 주신 URL)
     const DATA_URL = 'https://script.google.com/macros/s/AKfycbzBUhwXIy5dswQuzE3vWtPnaCZEOtcP2ryif07-HuG4Qv75YbqWtVL_DWZiN2EdEUkC/exec';
 
     fetch(DATA_URL)
@@ -202,7 +207,6 @@
         if (input === "") { alert("검색어를 입력해주세요!"); return; }
         if (bibleData.length === 0) { alert("아직 데이터를 불러오는 중입니다."); return; }
 
-        // 스마트폰 키보드 숨기기 (검색 버튼 누르면)
         document.getElementById('searchInput').blur();
 
         currentFilteredData = bibleData.filter(item => {
@@ -255,7 +259,6 @@
     function displayList() {
         const resultContainer = document.getElementById('results');
         resultContainer.innerHTML = "";
-        // 화면 맨 위로 부드럽게 이동
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         if (currentFilteredData.length === 0) {
@@ -289,11 +292,9 @@
         const pageCount = Math.ceil(currentFilteredData.length / rowsPerPage);
         if (pageCount <= 1) return;
 
-        // 모바일에서는 페이지 버튼을 5개까지만 보여주도록 제한 (간단화)
         let startPage = Math.max(1, currentPage - 2);
         let endPage = Math.min(pageCount, startPage + 4);
         
-        // 페이지 범위 보정
         if (endPage - startPage < 4) {
             startPage = Math.max(1, endPage - 4);
         }
@@ -308,7 +309,7 @@
             btn.addEventListener('click', function() {
                 currentPage = i;
                 displayList(); 
-                setupPagination(); // 페이지 버튼도 다시 그림 (이동 효과)
+                setupPagination(); 
             });
 
             paginationContainer.appendChild(btn);
