@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> 성경 검색 (개역개정, 쉬운성경, 크로아티아성경, NIV) </title>
+    <title>4개 국어 성경 검색</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Roboto:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 
     <style>
-        /* --- [기본 스타일] --- */
+        /* --- [스타일은 기존과 동일합니다] --- */
         body { 
             font-family: 'Roboto', 'Noto Sans KR', sans-serif;
             background-color: #f0f2f5; 
@@ -60,16 +60,10 @@
             margin: 0; line-height: 1.6; padding-left: 10px; 
             border-left: 3px solid transparent; font-size: 16px; word-break: keep-all; 
         }
-        
-        /* --- [폰트 및 색상 설정] --- */
         .kr { color: #333; border-left-color: #e74c3c; font-weight: 500; font-family: 'Noto Sans KR', sans-serif; }
-        
-        /* 쉬운 성경 스타일 (보라색) */
         .ekr { color: #8e24aa; border-left-color: #8e24aa; font-weight: 500; font-family: 'Noto Sans KR', sans-serif; }
-        
         .hr { color: #2e7d32; border-left-color: #2e7d32; font-style: italic; font-size: 15px; font-family: 'Roboto', sans-serif; }
         .en { color: #1976d2; border-left-color: #1976d2; font-size: 15px; font-family: 'Roboto', sans-serif; }
-
         .pagination { display: flex; justify-content: center; gap: 4px; margin-top: 30px; flex-wrap: wrap; }
         .page-btn {
             padding: 8px 12px; border: 1px solid #eee; background-color: white; 
@@ -77,7 +71,6 @@
             font-family: 'Roboto', sans-serif;
         }
         .page-btn.active { background-color: #5c6bc0; color: white; border-color: #5c6bc0; }
-
         @media (max-width: 600px) {
             body { padding: 10px; background-color: #fff; }
             .container { padding: 15px; box-shadow: none; }
@@ -92,16 +85,16 @@
 <body>
 
 <div class="container">
-    <h1>📖 성경 검색 (개역개정, 쉬운성경, 크로아티아성경, NIV)</h1>
+    <h1>📖 4개 국어 성경 검색</h1>
     
     <div class="search-controls">
         <select id="searchLang">
             <option value="kr">개역개정 (KR)</option>
-            <option value="ekr">쉬운성경 (Easy)</option> 
+            <option value="ekr">쉬운성경 (Easy)</option>
             <option value="hr">크로아티아어 (HR)</option>
             <option value="en">English (NIV)</option>
         </select>
-        <input type="text" id="searchInput" placeholder="예: 사랑, 창세기 1:1-5">
+        <input type="text" id="searchInput" placeholder="예: 마태복음 1, 마태 1:, 마태 1:1-5">
         <button onclick="searchBible()">검색</button>
     </div>
 
@@ -122,9 +115,8 @@
     let currentPage = 1;          
     const rowsPerPage = 10;       
 
-    // 사용자 데이터 URL (이 부분은 사용자님의 URL로 유지하세요)
-    // 앱스 스크립트를 '새 버전'으로 배포했다면 URL은 바꾸지 않아도 됩니다.
-    const DATA_URL = 'https://script.google.com/macros/s/AKfycbxEectBvfGAbpU8D6vi9IeE9j-aQXpSMPChohjnJWzo508oQE-wBMS3QtiUES5k3e0/exec';
+    // 사용자님의 URL (그대로 유지)
+    const DATA_URL = 'https://script.google.com/macros/s/AKfycbzBUhwXIy5dswQuzE3vWtPnaCZEOtcP2ryif07-HuG4Qv75YbqWtVL_DWZiN2EdEUkC/exec';
 
     fetch(DATA_URL)
     .then(response => response.json())
@@ -151,10 +143,8 @@
 
         currentFilteredData = bibleData.filter(item => {
             let contentText = "";
-            
-            // 검색할 대상 선택 로직 추가
             if (langMode === 'kr') contentText = item.content_kr;
-            else if (langMode === 'ekr') contentText = item.content_ekr; // 추가됨
+            else if (langMode === 'ekr') contentText = item.content_ekr;
             else if (langMode === 'hr') contentText = item.content_hr;
             else if (langMode === 'en') contentText = item.content_en;
             
@@ -178,7 +168,18 @@
                 const searchRef = input.substring(lastSpaceIndex + 1).trim();
 
                 if (bookName.includes(searchBook)) {
-                    if (searchRef.includes('-') && searchRef.includes(':')) {
+                    
+                    // 1. "마태복음 1:" 처럼 콜론으로 끝나는 경우 (★ 여기가 추가된 기능!)
+                    if (searchRef.endsWith(':')) {
+                        // "1:" 에서 콜론을 떼고 숫자만 가져옴 -> 1
+                        const searchChapter = parseInt(searchRef.replace(':', ''));
+                        // 그 장과 일치하면 합격 (장 전체 보여주기)
+                        if (itemChapter === searchChapter) {
+                            complexMatch = true;
+                        }
+                    }
+                    // 2. "1:1-5" 범위 검색
+                    else if (searchRef.includes('-') && searchRef.includes(':')) {
                         try {
                             const parts = searchRef.split(':');
                             const searchChapter = parseInt(parts[0]);
@@ -193,9 +194,11 @@
                             }
                         } catch (e) {}
                     } 
+                    // 3. "1:1" 정확한 절 검색
                     else if (searchRef.includes(':')) {
                         if (verseRef === searchRef) complexMatch = true;
                     } 
+                    // 4. "1" 장 전체 검색
                     else {
                         if (verseRef.startsWith(searchRef + ':')) complexMatch = true;
                     }
@@ -236,8 +239,6 @@
         paginatedItems.forEach(item => {
             const div = document.createElement('div');
             div.className = 'result-item';
-            
-            // 결과 화면에 4개 언어 모두 표시
             div.innerHTML = `
                 <h3>${item.book} ${item.chapter}:${item.verse}</h3>
                 <div class="verse-box">
@@ -289,5 +290,3 @@
 
 </body>
 </html>
-
-
