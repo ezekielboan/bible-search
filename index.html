@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3개 국어 성경 검색</title>
+    <title>4개 국어 성경 검색</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,8 +61,9 @@
             border-left: 3px solid transparent; font-size: 16px; word-break: keep-all; 
         }
         
-        /* 3개 언어 스타일 */
+        /* 언어별 스타일 */
         .kr { color: #333; border-left-color: #e74c3c; font-weight: 500; font-family: 'Noto Sans KR', sans-serif; }
+        .ekr { color: #8e24aa; border-left-color: #8e24aa; font-weight: 500; font-family: 'Noto Sans KR', sans-serif; } /* 쉬운성경(보라색) */
         .hr { color: #2e7d32; border-left-color: #2e7d32; font-style: italic; font-size: 15px; font-family: 'Roboto', sans-serif; }
         .en { color: #1976d2; border-left-color: #1976d2; font-size: 15px; font-family: 'Roboto', sans-serif; }
 
@@ -88,12 +89,12 @@
 <body>
 
 <div class="container">
-    <h1>📖 성경 검색 (한·크·영)</h1>
+    <h1>📖 4개 국어 성경 검색</h1>
     
     <div class="search-controls">
         <select id="searchLang">
             <option value="kr">개역개정 (KR)</option>
-            <option value="hr">크로아티아어 (HR)</option>
+            <option value="ekr">쉬운성경 (Easy)</option> <option value="hr">크로아티아어 (HR)</option>
             <option value="en">English (NIV)</option>
         </select>
         <input type="text" id="searchInput" placeholder="예: 마태복음 1, 마태 1:, 마태 1:1-5">
@@ -117,7 +118,7 @@
     let currentPage = 1;          
     const rowsPerPage = 10;       
 
-    // 사용자님의 URL (4개 버전용 URL을 그대로 써도, 아래 코드에서 3개만 골라 쓰므로 문제없습니다!)
+    // 사용자님의 데이터 URL (앱스 스크립트에서 4개 파일 버전을 '새 버전'으로 배포한 URL이어야 합니다)
     const DATA_URL = 'https://script.google.com/macros/s/AKfycbzBUhwXIy5dswQuzE3vWtPnaCZEOtcP2ryif07-HuG4Qv75YbqWtVL_DWZiN2EdEUkC/exec';
 
     fetch(DATA_URL)
@@ -145,7 +146,9 @@
 
         currentFilteredData = bibleData.filter(item => {
             let contentText = "";
+            // 검색할 대상 선택
             if (langMode === 'kr') contentText = item.content_kr;
+            else if (langMode === 'ekr') contentText = item.content_ekr; // 추가됨
             else if (langMode === 'hr') contentText = item.content_hr;
             else if (langMode === 'en') contentText = item.content_en;
             
@@ -242,6 +245,7 @@
                 <h3>${item.book} ${item.chapter}:${item.verse}</h3>
                 <div class="verse-box">
                     <p class="verse-text kr">🇰🇷 ${item.content_kr}</p>
+                    <p class="verse-text ekr">🐣 ${item.content_ekr ? item.content_ekr : '(데이터 없음)'}</p>
                     <p class="verse-text hr">🇭🇷 ${item.content_hr}</p>
                     <p class="verse-text en">🇺🇸 ${item.content_en}</p>
                 </div>
