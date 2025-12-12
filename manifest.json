@@ -1,0 +1,15 @@
+{
+  "name": "4가지 성경검색",
+  "short_name": "성경검색",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5c6bc0",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
