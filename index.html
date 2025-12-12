@@ -197,7 +197,8 @@
     let loadingTimer;
     let startTime;
 
-    const DATA_URL = 'https://script.google.com/macros/s/AKfycbxfTwbZqcV7A6__sLGDXNi2Uw7nNqPWmMtiIYJXY_C2-lEKM8mOhus4ML1lMSjyrrak/exec';
+    // 사용자님의 데이터 URL (그대로 유지)
+    const DATA_URL = 'https://script.google.com/macros/s/AKfycbzBUhwXIy5dswQuzE3vWtPnaCZEOtcP2ryif07-HuG4Qv75YbqWtVL_DWZiN2EdEUkC/exec';
 
     // --- [데이터 로딩 시작 & 타이머 작동] ---
     startTime = Date.now();
@@ -215,7 +216,7 @@
     .then(data => {
         bibleData = data;
         // --- [로딩 성공 시] ---
-        clearInterval(loadingTimer); // 타이머 멈춤
+        clearInterval(loadingTimer);
         const statusDiv = document.getElementById('status');
         statusDiv.innerHTML = "✅ 데이터 준비 완료!";
         setTimeout(() => { statusDiv.style.display = 'none'; }, 1000);
@@ -223,19 +224,53 @@
     .catch(error => {
         console.error(error);
         // --- [로딩 실패 시] ---
-        clearInterval(loadingTimer); // 타이머 멈춤
+        clearInterval(loadingTimer);
         const statusDiv = document.getElementById('status');
         statusDiv.innerHTML = "❌ 데이터를 불러올 수 없습니다.<br>(인터넷 연결을 확인해주세요)";
         statusDiv.style.color = "red";
-        // 실패 시에는 스피너를 숨깁니다.
         if (document.querySelector('.spinner')) {
             document.querySelector('.spinner').style.display = 'none';
         }
     });
 
+    // =================================================================
+    // ★ [새로운 도우미 함수] 성경 주소를 계산 가능한 숫자로 변환 ★
+    // 입력 예: "1:1" -> 1001, "1:"(시작) -> 1000, "2:"(끝) -> 2999
+    // =================================================================
+    function getRefValue(refString, isEndBoundary) {
+        refString = refString.trim();
+        let chapter, verse;
+        
+        // 콜론(:)이 있는 경우 (예: "1:1", "1:", ":5")
+        if (refString.includes(':')) {
+            const parts = refString.split(':');
+            chapter = parts[0] ? parseInt(parts[0]) : 0; // 장 번호가 없으면 0 (예: ":5" 검색 시)
+            
+            // 절 번호가 비어있으면 (예: "1:")
+            if (!parts[1]) {
+                // 범위의 끝이면 그 장의 마지막 절까지(999), 시작이면 0절부터
+                verse = isEndBoundary ? 999 : 0; 
+            } else {
+                verse = parseInt(parts[1]);
+            }
+        } 
+        // 콜론 없이 숫자만 있는 경우 (예: "1" -> 1장 전체)
+        else {
+            chapter = parseInt(refString);
+            verse = isEndBoundary ? 999 : 0;
+        }
+
+        // 계산 공식: (장 * 1000) + 절
+        return (chapter * 1000) + verse;
+    }
+
+
     function searchBible() {
         const langMode = document.getElementById('searchLang').value;
-        const input = document.getElementById('searchInput').value.toLowerCase().trim();
+        // 하이픈(-) 주위의 공백을 유연하게 처리하기 위해 정규식으로 공백 정리
+        // "1: - 2:" -> "1:-2:" 로 만듦
+        let input = document.getElementById('searchInput').value.toLowerCase();
+        input = input.replace(/\s*-\s*/g, '-').trim(); 
         
         if (input === "") { alert("검색어를 입력해주세요!"); return; }
         if (bibleData.length === 0) { alert("아직 데이터를 불러오는 중입니다."); return; }
@@ -258,41 +293,63 @@
             const itemChapter = parseInt(item.chapter);
             const itemVerse = parseInt(item.verse);
 
+            // 현재 검사하는 구절의 좌표값 계산 (예: 1장 1절 -> 1001)
+            const itemRefValue = (itemChapter * 1000) + itemVerse;
+
+            // [1] 기본 검색 (본문 내용, 책 이름, 정확한 "1:1" 좌표 일치)
             const basicMatch = contentText.toLowerCase().includes(input) || 
                                bookName.includes(input) || 
                                verseRef === input;
 
+            // [2] 복합 검색 (책 이름 + 범위/장/절)
             let complexMatch = false;
             
-            if (input.includes(' ')) {
+            // 입력값에 공백이 있고(책 이름과 숫자가 분리됨), 하이픈(-)이 있으면 범위 검색 시도
+            if (input.includes(' ') && input.includes('-')) {
                 const lastSpaceIndex = input.lastIndexOf(' ');
                 const searchBook = input.substring(0, lastSpaceIndex).trim();
-                const searchRef = input.substring(lastSpaceIndex + 1).trim();
+                // "1:1-2:3" 또는 "1:-2:" 같은 범위 문자열
+                const rangeString = input.substring(lastSpaceIndex + 1).trim();
 
                 if (bookName.includes(searchBook)) {
-                    if (searchRef.endsWith(':')) {
-                        const searchChapter = parseInt(searchRef.replace(':', ''));
-                        if (itemChapter === searchChapter) complexMatch = true;
-                    }
-                    else if (searchRef.includes('-') && searchRef.includes(':')) {
-                        try {
-                            const parts = searchRef.split(':');
-                            const searchChapter = parseInt(parts[0]);
-                            const rangeParts = parts[1].split('-');
-                            const startVerse = parseInt(rangeParts[0]);
-                            const endVerse = parseInt(rangeParts[1]);
-                            if (itemChapter === searchChapter && itemVerse >= startVerse && itemVerse <= endVerse) {
-                                complexMatch = true;
-                            }
-                        } catch (e) {}
-                    } 
-                    else if (searchRef.includes(':')) {
-                        if (verseRef === searchRef) complexMatch = true;
-                    } 
-                    else {
-                        if (verseRef.startsWith(searchRef + ':')) complexMatch = true;
+                    try {
+                        // 하이픈(-)을 기준으로 시작점과 끝점을 나눔
+                        const rangeParts = rangeString.split('-'); // 예: ["1:1", "2:3"]
+                        const startRefStr = rangeParts[0];
+                        const endRefStr = rangeParts[1];
+
+                        // 도우미 함수를 이용해 시작점과 끝점의 좌표값 계산
+                        // isEndBoundary를 false/true로 주어 시작/끝을 구분
+                        const targetStartValue = getRefValue(startRefStr, false);
+                        const targetEndValue = getRefValue(endRefStr, true);
+
+                        // 현재 구절의 값이 목표 범위 안에 있는지 확인
+                        if (itemRefValue >= targetStartValue && itemRefValue <= targetEndValue) {
+                            complexMatch = true;
+                        }
+                    } catch (e) {
+                        // 입력 형식이 잘못된 경우 조용히 넘어감
+                        console.log("범위 검색 형식 오류:", e);
                     }
                 }
+            }
+            // 기존의 단일 장/절 검색 로직 (하이픈이 없는 경우)
+            else if (input.includes(' ')) {
+                 const lastSpaceIndex = input.lastIndexOf(' ');
+                 const searchBook = input.substring(0, lastSpaceIndex).trim();
+                 const searchRef = input.substring(lastSpaceIndex + 1).trim();
+                 
+                 if (bookName.includes(searchBook)) {
+                    // "1:" 또는 "1" 장 전체 검색
+                    if (searchRef.endsWith(':') || !searchRef.includes(':')) {
+                         const searchChapter = parseInt(searchRef.replace(':', ''));
+                         if (itemChapter === searchChapter) complexMatch = true;
+                    }
+                    // "1:1" 정확한 절 검색
+                    else if (searchRef.includes(':')) {
+                         if (verseRef === searchRef) complexMatch = true;
+                    }
+                 }
             }
             return basicMatch || complexMatch;
         });
@@ -303,6 +360,7 @@
         setupPagination(); 
     }
 
+    // ... (나머지 updateCountDisplay, highlightText, displayList, setupPagination, 이벤트 리스너 등은 기존 코드 그대로 유지) ...
     function updateCountDisplay() {
         const countDiv = document.getElementById('resultCount');
         if (currentFilteredData.length > 0) {
@@ -342,7 +400,8 @@
             div.className = 'result-item';
             
             let highlightKeyword = "";
-            if (!currentSearchKeyword.includes(' ') && !currentSearchKeyword.includes(':')) {
+            // 하이라이트는 범위 검색이나 장절 검색이 아닐 때(단어 검색일 때)만 적용
+            if (!currentSearchKeyword.includes(' ') && !currentSearchKeyword.includes(':') && !currentSearchKeyword.includes('-')) {
                 highlightKeyword = currentSearchKeyword;
             }
 
@@ -396,7 +455,6 @@
     function closeModal(event) { if (event.target.id === 'helpModal') document.getElementById('helpModal').style.display = 'none'; }
     function closeModalButton() { document.getElementById('helpModal').style.display = 'none'; }
 
-    // 서비스 워커 등록 (앱 설치 기능)
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js');
